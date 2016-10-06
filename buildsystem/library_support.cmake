@@ -44,3 +44,19 @@ FUNCTION(ADD_DEPENDENCY_TO_OPEN_CV)
 	
 	LINK_DIRECTORIES(${OpenCV_LIB_DIR})
 ENDFUNCTION(ADD_DEPENDENCY_TO_OPEN_CV)
+
+FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
+    FIND_PACKAGE(Tesseract REQUIRED)
+    IF(NOT ${Tesseract_FOUND})
+        MESSAGE(FATAL_ERROR "Unable to find the requested Tesseract libraries.")
+    ENDIF(NOT ${Tesseract_FOUND})
+    
+	MESSAGE(STATUS "Using Tesseract version: ${Tesseract_VERSION}")
+    MESSAGE(STATUS "Using Tesseract libraries from: ${Tesseract_LIBRARIES}")
+    MESSAGE(STATUS "Using Tesseract headers from: ${Tesseract_INCLUDE_DIRS}")
+	
+	SET(Tesseract_LIBRARIES ${Tesseract_LIBRARIES} PARENT_SCOPE)
+	SET(Tesseract_INCLUDE_DIRS ${Tesseract_INCLUDE_DIRS} PARENT_SCOPE)
+	
+	#LINK_DIRECTORIES(${OpenCV_LIB_DIR})
+ENDFUNCTION(ADD_DEPENDENCY_TO_TESSERACT)

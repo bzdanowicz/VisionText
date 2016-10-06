@@ -1,6 +1,7 @@
 #include <processing/ProcessingManager.h>
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 void showImageAndWait(cv::Mat image)
 {
@@ -28,5 +29,6 @@ int main(int argc, char** argv)
         auto regions = pm.loadImageAndFindRegions(imageName);
         showImageAndWait(regions);       
     }
+
     return 0;
 }

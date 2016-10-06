@@ -20,6 +20,10 @@ namespace helpers
 
     std::vector<cv::Rect> removeOverlappingRectangles(std::vector<cv::Rect> rects)
     {
+        std::sort(rects.begin(), rects.end(), [](cv::Rect rect1, cv::Rect rect2) {
+            return rect1.size().area() > rect2.size().area();
+        });
+
         std::vector<cv::Rect> uniqueRects;
 
         std::copy_if(rects.begin(), rects.end(), std::back_inserter(uniqueRects), [&rects](cv::Rect rectangle) {
@@ -36,4 +40,5 @@ namespace helpers
 
         return uniqueRects;
     }
+
 }
