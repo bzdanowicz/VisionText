@@ -2,8 +2,10 @@
 #include <processing/ProcessingManager.h>
 
 #include <algorithm>
+#include <numeric>
 #include <math.h>
 #include <exception>
+
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -50,6 +52,7 @@ cv::Mat ProcessingManager::processImage(cv::Mat image)
     }
     
     double angle = calculateSkew(image.clone());
+
     if (std::abs(angle) > configuration.minimumAngle)
     {
         image = deskew(image, angle);
@@ -113,14 +116,17 @@ double ProcessingManager::calculateSkew(cv::Mat image)
         return 0;
     }
 
-    double angle {};
-    for (unsigned i = 0; i < lines.size(); ++i)
+    std::vector<double> angles;
+    for (auto& line : lines)
     {
-        angle += atan2((double)lines[i][3] - lines[i][1],
-            (double)lines[i][2] - lines[i][0]);
+        angles.push_back(atan2((double)line[3] - line[1],
+            (double)line[2] - line[0]) * 180 / CV_PI);
     }
-    angle /= lines.size();
-    return angle * 180 / CV_PI;
+    
+    std::sort(angles.begin(), angles.end());
+    int discard = static_cast<int>(0.2 * angles.size());
+    double angle = std::accumulate(angles.begin() + discard, angles.end() - discard, 0.0) / std::distance(angles.begin() + discard, angles.end() - discard);
+    return angle;
 }
 
 std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)

@@ -40,5 +40,4 @@ namespace helpers
 
         return uniqueRects;
     }
-
 }
