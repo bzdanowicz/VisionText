@@ -1,20 +1,20 @@
 #include <processing/ProcessingHelper.h>
 #include <processing/ProcessingManager.h>
+#include <processing/thresholder.h>
 
 #include <algorithm>
 #include <numeric>
 #include <math.h>
 #include <exception>
 
-
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <processing/thresholder.h>
-
 void showImage(cv::Mat image)
 {
-    cv::imshow("TextVision", image);
+    cv::Mat cloned;
+    cv::resize(image, cloned, cv::Size(image.size().width / 2, image.size().height / 3));
+    cv::imshow("TextVision", cloned);
     cv::waitKey(0);
 }
 
@@ -32,7 +32,7 @@ cv::Mat ProcessingManager::loadImage(std::string imageName)
         int height = configuration.height < 10 ? configuration.height * image.size().height : configuration.height;
         cv::resize(image, image, cv::Size(width, height));
     }
-    
+
     return image;
 }
 
@@ -40,7 +40,7 @@ cv::Mat ProcessingManager::processImage(cv::Mat image)
 {
     image = sharp(image);
     
-    if (configuration.thresholdType == ThresholdType::Adaptive || configuration.height < 1 || image.size().height < 1000)
+    if (configuration.thresholdType == ThresholdType::Adaptive || (configuration.height < 1 && configuration.shouldResize) || image.size().height < 1000)
     {
         cv::adaptiveThreshold(image, image, 255, CV_THRESH_BINARY, CV_ADAPTIVE_THRESH_MEAN_C, configuration.adaptiveThresholdBlockSize, configuration.adaptiveThresholdConstant);
     }
@@ -80,18 +80,6 @@ std::vector<cv::Mat> ProcessingManager::loadImageAndFindRegions(std::string imag
     return findRegions(processedImage);
 }
 
-cv::Mat ProcessingManager::drawRegionsOnImage(cv::Mat image)
-{
-    auto regions = findBorders(image.clone());
-
-    for (auto& region : regions)
-    {
-        rectangle(image, region, cv::Scalar(0, 0, 255));
-    }
-
-    return image;
-}
-
 cv::Mat ProcessingManager::sharp(cv::Mat image)
 {
     image.convertTo(image, CV_32F);
@@ -109,7 +97,7 @@ double ProcessingManager::calculateSkew(cv::Mat image)
 {
     cv::bitwise_not(image, image);
     std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(image, lines, 1, CV_PI / 50, 50, image.size().width / 2, image.size().height * configuration.minRegionHeight);
+    cv::HoughLinesP(image, lines, 1, CV_PI / 180, 50, image.size().width / 2, image.size().height * configuration.minRegionHeight);
 
     if (!lines.size())
     {
@@ -150,7 +138,7 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
     findContours(image, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 
     std::vector<std::vector<cv::Point>> contours_poly(contours.size());
-    std::vector<cv::Rect> boundRect;
+    std::vector<cv::Rect> boundRects;
 
     for (int i = 0; i < contours.size(); i++)
     {
@@ -164,11 +152,16 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
             rect.y = rect.y < 0 ? 0 : rect.y;
             rect.height += 2 * offset;
             rect.height = rect.y + rect.height > image.size().height ? rect.height - (rect.y + rect.height) + image.size().height : rect.height;
-            boundRect.push_back(rect);
+            boundRects.push_back(rect);
         }
     }
 
-    return helpers::removeOverlappingRectangles(boundRect);
+    auto uniqueBoundRects = helpers::removeOverlappingRectangles(boundRects);
+    std::sort(uniqueBoundRects.begin(), uniqueBoundRects.end(), [](cv::Rect r1, cv::Rect r2) {
+        return r1.y > r2.y;
+    });
+
+    return uniqueBoundRects;
 }
 
 cv::Mat ProcessingManager::deskew(cv::Mat image, double angle)

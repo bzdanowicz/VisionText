@@ -1,8 +1,6 @@
 #pragma once
-#include <vector>
-
 #include <processing/ProcessingConfiguration.h>
-
+#include <vector>
 #include <opencv2/core/core.hpp>
 
 
@@ -24,9 +22,4 @@ private:
     double calculateSkew(cv::Mat image);
     cv::Mat deskew(cv::Mat image, double angle);
     cv::Mat sharp(cv::Mat image);
-
-    //Deprecated, testing purpose
-public:
-    cv::Mat ProcessingManager::drawRegionsOnImage(cv::Mat image);
-
 };
