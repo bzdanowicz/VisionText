@@ -171,8 +171,6 @@ void NiblackSauvolaWolfJolion(InputArray _src, OutputArray _dst, const BhThresho
                 for (int i = x_lastth; i<src.cols; ++i)
                     thsurf.fset(i, u, th);
     }
-    cerr << "surface created" << endl;
-
 
     for (int y = 0; y<src.rows; ++y)
         for (int x = 0; x<src.cols; ++x)

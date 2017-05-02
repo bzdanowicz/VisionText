@@ -1,8 +1,7 @@
 #include <recognition/TesseractManager.h>
-#include <memory>
 #include <opencv2/core/core.hpp>
 
-TesseractManager::TesseractManager(std::string language)
+TesseractManager::TesseractManager(std::string language, Style style) : style(style)
 {
     if (tesseract.Init(nullptr, language.c_str()))
     {
@@ -19,31 +18,62 @@ std::string TesseractManager::recognize(cv::Mat image)
     tesseract.Recognize(0);
     std::shared_ptr<tesseract::ResultIterator> result(tesseract.GetIterator());
 
+    return readText(result);
+}
+
+std::string TesseractManager::readText(std::shared_ptr<tesseract::ResultIterator> result)
+{
     std::ostringstream recognizedText;
     do
     {
+
         std::string str = result->GetUTF8Text(tesseract::RIL_WORD);
-       
+
         if (str.size() == 1 && isspace(str.c_str()[0]))
         {
             continue;
         }
-        recognizedText << str;
+
+        if (style == Style::Original)
+        {
+            recognizedText << str;
+        }
+        else
+        {
+            if (*str.rbegin() == '-'  && result->IsAtFinalElement(tesseract::RIL_TEXTLINE, tesseract::RIL_WORD))
+            {
+                recognizedText << std::string(str.begin(), std::next(str.end(), -1));
+            }
+            else
+            {
+                recognizedText << str;
+            }
+        }
 
         if (!result->IsAtFinalElement(tesseract::RIL_TEXTLINE, tesseract::RIL_WORD))
         {
             recognizedText << " ";
         }
-        
-        if (result->IsAtFinalElement(tesseract::RIL_TEXTLINE, tesseract::RIL_WORD))
+
+        if (result->IsAtFinalElement(tesseract::RIL_TEXTLINE, tesseract::RIL_WORD) && !(*str.rbegin() == '-') && (style == Style::Combined))
         {
-            recognizedText << std::endl;
+            recognizedText << " ";
         }
+
+        if (style == Style::Original)
+        {
+            if (result->IsAtFinalElement(tesseract::RIL_TEXTLINE, tesseract::RIL_WORD))
+            {
+                recognizedText << std::endl;
+            }
+        }
+
 
         if (result->IsAtFinalElement(tesseract::RIL_PARA, tesseract::RIL_WORD))
         {
             recognizedText << std::endl;
         }
+        
 
     } while (result->Next(tesseract::RIL_WORD));
 

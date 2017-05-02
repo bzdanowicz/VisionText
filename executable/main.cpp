@@ -4,6 +4,11 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
+#include <iterator>
+
+#include <opencv2/imgproc/imgproc.hpp>
+
+#include <hunspell/hunspell.hxx>
 
 int main(int argc, char** argv)
 {
@@ -21,18 +26,19 @@ int main(int argc, char** argv)
         }
 
         ProcessingManager pm;
-        TesseractManager tm("pol");
-
         auto regions = pm.loadImageAndFindRegions(imageName);
-        std::string recognized;
 
-        for (auto& region : regions)
-        {
-            recognized += tm.recognize(region);
-        }
-            
+        TesseractManager tm("pol", TesseractManager::Style::Combined);
+        std::string recognized;
+        
+            for (auto& region : regions)
+            {
+                recognized += tm.recognize(region);
+            }
+        
         std::ofstream out(ocrName, std::ofstream::trunc);
         out << recognized;
+
     }
     else
     {

@@ -10,11 +10,12 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#define HUNSPELL_STATIC 
+
 void showImage(cv::Mat image)
 {
-    cv::Mat cloned;
-    cv::resize(image, cloned, cv::Size(image.size().width / 2, image.size().height / 3));
-    cv::imshow("TextVision", cloned);
+    cvNamedWindow("TextVision", CV_WINDOW_NORMAL);
+    cv::imshow("TextVision", image);
     cv::waitKey(0);
 }
 
@@ -50,7 +51,7 @@ cv::Mat ProcessingManager::processImage(cv::Mat image)
         bht.doThreshold(image, image, BhThresholdMethod::SAUVOLA);
         cv::bitwise_not(image, image);
     }
-    
+
     double angle = calculateSkew(image.clone());
 
     if (std::abs(angle) > configuration.minimumAngle)
@@ -113,8 +114,7 @@ double ProcessingManager::calculateSkew(cv::Mat image)
     
     std::sort(angles.begin(), angles.end());
     int discard = static_cast<int>(0.2 * angles.size());
-    double angle = std::accumulate(angles.begin() + discard, angles.end() - discard, 0.0) / std::distance(angles.begin() + discard, angles.end() - discard);
-    return angle;
+    return std::accumulate(angles.begin() + discard, angles.end() - discard, 0.0) / std::distance(angles.begin() + discard, angles.end() - discard);
 }
 
 std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
@@ -122,13 +122,11 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
     cv::bitwise_not(image, image);
     std::vector<cv::Vec4i> lines;
     cv::HoughLinesP(image, lines, 1, CV_PI / 180, 10, image.size().width / 20, image.size().height * configuration.minRegionHeight);
-
     for (size_t i = 0; i < lines.size(); i++)
     {
         cv::Vec4i l = lines[i];
         line(image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 255, 255), 3, CV_AA);
     }
-
     cv::morphologyEx(image, image, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(1, image.size().height * configuration.minRegionHeight)));
     cv::morphologyEx(image, image, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(image.size().width * 0.08, 5)));
     cv::threshold(image, image, 150, 255, CV_THRESH_BINARY);
