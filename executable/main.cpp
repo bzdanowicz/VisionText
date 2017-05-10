@@ -8,10 +8,11 @@
 
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <hunspell/hunspell.hxx>
-
 int main(int argc, char** argv)
 {
+    TesseractManager tm("pol", TesseractManager::Style::Combined);
+    ProcessingManager pm;
+
     if (argc >= 2)
     {
         std::string imageName = argv[1];
@@ -22,19 +23,17 @@ int main(int argc, char** argv)
         }
         else
         {
-            ocrName = imageName + ".txt";
+            return 0;
         }
 
-        ProcessingManager pm;
         auto regions = pm.loadImageAndFindRegions(imageName);
 
-        TesseractManager tm("pol", TesseractManager::Style::Combined);
         std::string recognized;
         
-            for (auto& region : regions)
-            {
-                recognized += tm.recognize(region);
-            }
+        for (auto& region : regions)
+        {
+            recognized += tm.recognize(region);
+        }
         
         std::ofstream out(ocrName, std::ofstream::trunc);
         out << recognized;

@@ -3,7 +3,7 @@
 
 TesseractManager::TesseractManager(std::string language, Style style) : style(style)
 {
-    if (tesseract.Init(nullptr, language.c_str()))
+    if (tesseract.Init(LANGUAGE_DIR, language.c_str()))
     {
         throw std::exception("Could not initialize tesseract");
     }

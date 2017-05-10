@@ -50,12 +50,17 @@ FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
     IF(NOT ${Tesseract_FOUND})
         MESSAGE(FATAL_ERROR "Unable to find the requested Tesseract libraries.")
     ENDIF(NOT ${Tesseract_FOUND})
-    
-	MESSAGE(STATUS "Using Tesseract version: ${Tesseract_VERSION}")
+
+    FIND_PACKAGE(Leptonica REQUIRED)
+    IF(NOT ${Leptonica_FOUND})
+        MESSAGE(FATAL_ERROR "Unable to find the requested Leptonica libraries.")
+    ENDIF(NOT ${Leptonica_FOUND})
+
+    MESSAGE(STATUS "Using Tesseract version: ${Tesseract_VERSION}")
     MESSAGE(STATUS "Using Tesseract libraries from: ${Tesseract_LIBRARIES}")
     MESSAGE(STATUS "Using Tesseract headers from: ${Tesseract_INCLUDE_DIRS}")
-
-	SET(Tesseract_LIBS ${Tesseract_LIBRARIES} PARENT_SCOPE)
+    
+	SET(Tesseract_LIBS libtesseract leptonica PARENT_SCOPE)
 	SET(Tesseract_INCLUDE_DIRS ${Tesseract_INCLUDE_DIRS} PARENT_SCOPE)
 
 ENDFUNCTION(ADD_DEPENDENCY_TO_TESSERACT)

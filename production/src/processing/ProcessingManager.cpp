@@ -10,8 +10,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define HUNSPELL_STATIC 
-
 void showImage(cv::Mat image)
 {
     cvNamedWindow("TextVision", CV_WINDOW_NORMAL);
