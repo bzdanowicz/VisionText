@@ -13,6 +13,8 @@ SET(USE_OPENCV ON CACHE BOOL "Use OpenCV for the project")
 
 SET(USE_TESSERACT ON CACHE BOOL "Use Tesseract for the project")
 
+SET(USE_LEPTONICA ON CACHE BOOL "Use Leptonica for the project")
+
 SET(USE_MULTITHREADING ON CACHE BOOL "Use multithreading for the project")
 
 SET(WITH_EXECUTABLE ON CACHE BOOL "Compile executable version of the project")
