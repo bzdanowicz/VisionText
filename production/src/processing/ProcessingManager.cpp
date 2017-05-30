@@ -17,19 +17,35 @@ void showImage(cv::Mat image)
     cv::waitKey(0);
 }
 
+std::vector<cv::Mat> ProcessingManager::loadImageAndFindRegions(std::string imageName)
+{
+    cv::Mat image = loadImage(imageName);
+
+    double angle = calculateSkew(image.clone());
+
+    if (std::abs(angle) > configuration.minimumAngle)
+    {
+        image = deskew(image, angle);
+    }
+
+    int letterHeight = calculateHeight(image.clone());
+
+    if (letterHeight < configuration.minimumLetterHeight || letterHeight > configuration.maximumLetterHeight)
+    {
+        double ratio = static_cast<double>(configuration.prefferedLetterHeight) / letterHeight;
+        resize(image, image, cv::Size(), ratio, ratio);
+    }
+
+    auto processedImage = processImage(image);
+    return findRegions(processedImage);
+}
+
 cv::Mat ProcessingManager::loadImage(std::string imageName)
 {
     cv::Mat image = cv::imread(imageName.c_str(), cv::IMREAD_GRAYSCALE);
     if (image.empty())
     {
         throw std::exception("Could not open or find the image");
-    }
-    
-    if (configuration.shouldResize)
-    {
-        int width = configuration.width < 10 ? configuration.width * image.size().width : configuration.width;
-        int height = configuration.height < 10 ? configuration.height * image.size().height : configuration.height;
-        cv::resize(image, image, cv::Size(width, height));
     }
 
     return image;
@@ -38,8 +54,8 @@ cv::Mat ProcessingManager::loadImage(std::string imageName)
 cv::Mat ProcessingManager::processImage(cv::Mat image)
 {
     image = sharp(image);
-    
-    if (configuration.thresholdType == ThresholdType::Adaptive || (configuration.height < 1 && configuration.shouldResize) || image.size().height < 1000)
+
+    if (configuration.thresholdType == ThresholdType::Adaptive || image.size().height < 1000)
     {
         cv::adaptiveThreshold(image, image, 255, CV_THRESH_BINARY, CV_ADAPTIVE_THRESH_MEAN_C, configuration.adaptiveThresholdBlockSize, configuration.adaptiveThresholdConstant);
     }
@@ -49,52 +65,14 @@ cv::Mat ProcessingManager::processImage(cv::Mat image)
         bht.doThreshold(image, image, BhThresholdMethod::SAUVOLA);
         cv::bitwise_not(image, image);
     }
-
-    double angle = calculateSkew(image.clone());
-
-    if (std::abs(angle) > configuration.minimumAngle)
-    {
-        image = deskew(image, angle);
-    }
-
     return image;
 }
 
-std::vector<cv::Mat> ProcessingManager::findRegions(cv::Mat image)
+double ProcessingManager::calculateSkew(cv::Mat image) const
 {
-    auto regions = findBorders(image.clone());
-    std::vector<cv::Mat> uniqueRegions;
+    BhThresholder bht;
+    bht.doThreshold(image, image, BhThresholdMethod::SAUVOLA);
 
-    std::for_each(regions.begin(), regions.end(), [&uniqueRegions, &image](cv::Rect rect) {
-        uniqueRegions.insert(uniqueRegions.begin(), image.clone()(rect));
-    });
-
-    return uniqueRegions;
-}
-
-std::vector<cv::Mat> ProcessingManager::loadImageAndFindRegions(std::string imageName)
-{
-    cv::Mat image = loadImage(imageName);
-    auto processedImage = processImage(image);
-    return findRegions(processedImage);
-}
-
-cv::Mat ProcessingManager::sharp(cv::Mat image)
-{
-    image.convertTo(image, CV_32F);
-    cv::Mat outputImage;
-
-    GaussianBlur(image, outputImage, cv::Size(0, 0), 3);
-    addWeighted(image, configuration.sharpeningAlpha, outputImage, configuration.sharpeningBeta, 0, outputImage);
-
-    outputImage.convertTo(outputImage, CV_8U);
-
-    return outputImage;
-}
-
-double ProcessingManager::calculateSkew(cv::Mat image)
-{
-    cv::bitwise_not(image, image);
     std::vector<cv::Vec4i> lines;
     cv::HoughLinesP(image, lines, 1, CV_PI / 180, 50, image.size().width / 2, image.size().height * configuration.minRegionHeight);
 
@@ -109,13 +87,67 @@ double ProcessingManager::calculateSkew(cv::Mat image)
         angles.push_back(atan2((double)line[3] - line[1],
             (double)line[2] - line[0]) * 180 / CV_PI);
     }
-    
+
     std::sort(angles.begin(), angles.end());
     int discard = static_cast<int>(0.2 * angles.size());
     return std::accumulate(angles.begin() + discard, angles.end() - discard, 0.0) / std::distance(angles.begin() + discard, angles.end() - discard);
 }
 
-std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
+int ProcessingManager::calculateHeight(cv::Mat image) const
+{
+    BhThresholder bht;
+    bht.doThreshold(image, image, BhThresholdMethod::SAUVOLA);
+
+    std::vector<cv::Vec4i> lines;
+
+    cv::HoughLinesP(image, lines, 1, CV_PI / 180, 50, image.size().width / 2, image.size().height * configuration.minRegionHeight);
+    
+    std::vector<int> height;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        cv::Vec4i l = lines[i];
+        line(image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 255, 255), 3, CV_AA);
+    }
+    cv::morphologyEx(image, image, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(static_cast<int>(image.size().width * 0.08), 7)));
+    cv::threshold(image, image, 150, 255, CV_THRESH_BINARY);
+
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Vec4i> hierarchy;
+    findContours(image, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+    std::vector<cv::RotatedRect> rects(contours.size());
+
+    for (auto& contour : contours)
+    {
+        rects.push_back(minAreaRect(cv::Mat(contour)));
+    }
+
+    std::vector<cv::RotatedRect> filteredRects;
+    std::copy_if(rects.begin(), rects.end(), std::back_inserter(filteredRects), [](cv::RotatedRect rect) {
+        return rect.size.height > 3 && rect.size.height < 100;
+    });
+
+    std::nth_element(filteredRects.begin(), filteredRects.begin() + filteredRects.size() / 2, filteredRects.end(), [](cv::RotatedRect lhs, cv::RotatedRect rhs) {
+        return lhs.size.height < rhs.size.height;
+    });
+
+    cv::RotatedRect median = filteredRects.at(filteredRects.size() / 2);
+    return static_cast<int>(median.size.height);
+}
+
+std::vector<cv::Mat> ProcessingManager::findRegions(cv::Mat image) const
+{
+    auto regions = findBorders(image.clone());
+    std::vector<cv::Mat> uniqueRegions;
+
+    std::for_each(regions.begin(), regions.end(), [&uniqueRegions, &image](cv::Rect rect) {
+        uniqueRegions.insert(uniqueRegions.begin(), image.clone()(rect));
+    });
+
+    return uniqueRegions;
+}
+
+std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image) const
 {
     cv::bitwise_not(image, image);
     std::vector<cv::Vec4i> lines;
@@ -125,8 +157,8 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
         cv::Vec4i l = lines[i];
         line(image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 255, 255), 3, CV_AA);
     }
-    cv::morphologyEx(image, image, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(1, image.size().height * configuration.minRegionHeight)));
-    cv::morphologyEx(image, image, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(image.size().width * 0.08, 5)));
+    cv::morphologyEx(image, image, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(1, static_cast<int>(image.size().height * configuration.minRegionHeight))));
+    cv::morphologyEx(image, image, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(static_cast<int>(image.size().width * 0.08), 5)));
     cv::threshold(image, image, 150, 255, CV_THRESH_BINARY);
 
     std::vector<std::vector<cv::Point>> contours;
@@ -136,14 +168,14 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
     std::vector<std::vector<cv::Point>> contours_poly(contours.size());
     std::vector<cv::Rect> boundRects;
 
-    for (int i = 0; i < contours.size(); i++)
+    for (size_t i = 0; i < contours.size(); i++)
     {
         cv::approxPolyDP(cv::Mat(contours[i]), contours_poly[i], 3, true);
         auto contoursMat = cv::Mat(contours_poly[i]);
         auto rect = cv::boundingRect(contoursMat);
         if (rect.size().width > image.size().width * 0.2 && rect.size().height > image.size().height * configuration.minRegionHeight)
         {
-            int offset = image.size().height * configuration.bordersOffset;
+            int offset = static_cast<int>(image.size().height * configuration.bordersOffset);
             rect.y -= offset;
             rect.y = rect.y < 0 ? 0 : rect.y;
             rect.height += 2 * offset;
@@ -162,18 +194,32 @@ std::vector<cv::Rect> ProcessingManager::findBorders(cv::Mat image)
 
 cv::Mat ProcessingManager::deskew(cv::Mat image, double angle)
 {
-    cv::RotatedRect box = cv::RotatedRect(cv::Point2f(image.size().width / 2.0, image.size().height / 2.0), cv::Point2f(image.size().width, image.size().height), 0);
+    cv::RotatedRect box = cv::RotatedRect(cv::Point2f(static_cast<float>(image.size().width / 2.0), static_cast<float>(image.size().height / 2.0)), 
+        cv::Point2f(static_cast<float>(image.size().width), static_cast<float>(image.size().height)), 0);
     cv::Mat rot_mat = cv::getRotationMatrix2D(box.center, angle, 1);
     cv::warpAffine(image, image, rot_mat, image.size(), cv::INTER_CUBIC, cv::BORDER_CONSTANT, cv::Scalar(255, 255, 255));
     return image;
 }
 
-ProcessingConfiguration ProcessingManager::getConfiguration()
+cv::Mat ProcessingManager::sharp(cv::Mat image)
+{
+    image.convertTo(image, CV_32F);
+    cv::Mat outputImage;
+
+    GaussianBlur(image, outputImage, cv::Size(0, 0), 3);
+    addWeighted(image, configuration.sharpeningAlpha, outputImage, configuration.sharpeningBeta, 0, outputImage);
+
+    outputImage.convertTo(outputImage, CV_8U);
+
+    return outputImage;
+}
+
+ProcessingConfiguration ProcessingManager::getConfiguration() const
 {
     return configuration;
 }
 
-void ProcessingManager::setConfiguration(ProcessingConfiguration conf)
+void ProcessingManager::setConfiguration(const ProcessingConfiguration& conf)
 {
     configuration = conf;
 }

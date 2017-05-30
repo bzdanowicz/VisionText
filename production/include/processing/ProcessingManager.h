@@ -7,19 +7,26 @@
 class ProcessingManager
 {
 public:
-    ProcessingManager() {};
-    cv::Mat loadImage(std::string imageName);
-    cv::Mat processImage(cv::Mat image);
-    std::vector<cv::Rect> findBorders(cv::Mat image);
-    std::vector<cv::Mat> findRegions(cv::Mat image);
+    ProcessingManager() = default;
+    
     std::vector<cv::Mat> loadImageAndFindRegions(std::string imageName);
     
-    ProcessingConfiguration getConfiguration();
-    void setConfiguration(ProcessingConfiguration conf);
+    ProcessingConfiguration getConfiguration() const;
+    void setConfiguration(const ProcessingConfiguration& conf);
 
-private:
-    ProcessingConfiguration configuration;
-    double calculateSkew(cv::Mat image);
+protected:
+    cv::Mat loadImage(std::string imageName);
+    cv::Mat processImage(cv::Mat image);
+
     cv::Mat deskew(cv::Mat image, double angle);
     cv::Mat sharp(cv::Mat image);
+
+    std::vector<cv::Rect> findBorders(cv::Mat image) const;
+    std::vector<cv::Mat> findRegions(cv::Mat image) const;
+
+    double calculateSkew(cv::Mat image) const;
+    int calculateHeight(cv::Mat image) const;
+    
+private:
+    ProcessingConfiguration configuration;
 };

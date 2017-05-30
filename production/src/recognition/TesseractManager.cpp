@@ -16,12 +16,13 @@ std::string TesseractManager::recognize(cv::Mat image)
 {
     tesseract.SetImage((uchar*)image.data, image.size().width, image.size().height, image.channels(), image.step1());
     tesseract.Recognize(0);
+
     std::shared_ptr<tesseract::ResultIterator> result(tesseract.GetIterator());
 
     return readText(result);
 }
 
-std::string TesseractManager::readText(std::shared_ptr<tesseract::ResultIterator> result)
+std::string TesseractManager::readText(std::shared_ptr<tesseract::ResultIterator> result) const
 {
     std::ostringstream recognizedText;
     do
@@ -33,7 +34,6 @@ std::string TesseractManager::readText(std::shared_ptr<tesseract::ResultIterator
         {
             continue;
         }
-
         if (style == Style::Original)
         {
             recognizedText << str;

@@ -13,18 +13,10 @@ int main(int argc, char** argv)
     TesseractManager tm("pol", TesseractManager::Style::Combined);
     ProcessingManager pm;
 
-    if (argc >= 2)
+    if (argc == 2)
     {
         std::string imageName = argv[1];
-        std::string ocrName;
-        if (argv[2] != nullptr)
-        {
-            ocrName = argv[2];
-        }
-        else
-        {
-            return 0;
-        }
+        std::string ocrName = argv[2];
 
         auto regions = pm.loadImageAndFindRegions(imageName);
 

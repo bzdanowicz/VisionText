@@ -16,7 +16,7 @@ public:
     std::string recognize(cv::Mat image);
 
 private:
-    std::string readText(std::shared_ptr<tesseract::ResultIterator> result);
+    std::string readText(std::shared_ptr<tesseract::ResultIterator> result) const;
     tesseract::TessBaseAPI tesseract;
     Style style;
 };

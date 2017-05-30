@@ -27,7 +27,6 @@ FUNCTION(ADD_DEPENDENCY_TO_BOOST VERSION)
 	LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 ENDFUNCTION(ADD_DEPENDENCY_TO_BOOST VERSION LIBRARIES)
 
-
 FUNCTION(ADD_DEPENDENCY_TO_OPEN_CV)
     FIND_PACKAGE(OpenCV REQUIRED)
     IF(NOT ${OpenCV_FOUND})
@@ -52,7 +51,9 @@ FUNCTION(ADD_DEPENDENCY_TO_LEPTONICA)
     IF(NOT ${Leptonica_FOUND})
         MESSAGE("Unable to find the requested Leptonica libraries. Adding leptonica as dependency project.")
         SET(Leptonica_Source ${CMAKE_SOURCE_DIR}/leptonica)
-        include(ExternalProject)
+        FILE(MAKE_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/leptonica)
+        
+        INCLUDE(ExternalProject)
         ExternalProject_Add(
             leptonica
             GIT_REPOSITORY  "https://github.com/DanBloomberg/leptonica.git"
@@ -60,25 +61,23 @@ FUNCTION(ADD_DEPENDENCY_TO_LEPTONICA)
             UPDATE_COMMAND ""
             PATCH_COMMAND ""
             TEST_COMMAND ""
-            BINARY_DIR "${Leptonica_Source}/bin"
+            BINARY_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/leptonica"
             SOURCE_DIR "${Leptonica_Source}"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX:PATH=${Leptonica_Source}/install
                 -DSTATIC=TRUE
         )
-    
-        add_library(libleptonica SHARED IMPORTED)
+        
+        ADD_LIBRARY(libleptonica SHARED IMPORTED)
         
         set_property(TARGET libleptonica APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
         set_target_properties(libleptonica PROPERTIES
-            IMPORTED_IMPLIB_DEBUG "${Leptonica_Source}/bin/src/Debug/leptonica-1.74.2d.lib"
-            IMPORTED_LOCATION_DEBUG "${Leptonica_Source}bin/Debug/leptonica-1.74.2d.dll"
+            IMPORTED_IMPLIB_DEBUG "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/leptonica/src/Debug/leptonica-1.74.2d.lib"
         )
         
         set_property(TARGET libleptonica APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
         set_target_properties(libleptonica PROPERTIES
-            IMPORTED_IMPLIB_RELEASE "${Leptonica_Source}/bin/src/Release/leptonica-1.74.2.lib"
-            IMPORTED_LOCATION_RELEASE "${Leptonica_Source}/bin/bin/Release/leptonica-1.74.2.dll"
+            IMPORTED_IMPLIB_RELEASE "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/leptonica/src/Release/leptonica-1.74.2.lib"
         )
         
         SET(EXTERNAL_PROJECTS ${EXTERNAL_PROJECTS};leptonica PARENT_SCOPE)
@@ -97,7 +96,9 @@ FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
     IF(NOT ${Tesseract_FOUND})
         MESSAGE("Unable to find the requested Tesseract libraries. Adding tesseract as dependency project.")
         SET(Tesseract_Source ${CMAKE_SOURCE_DIR}/tesseract)
-        include(ExternalProject)
+        FILE(MAKE_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tesseract)
+        
+        INCLUDE(ExternalProject)
         ExternalProject_Add(
             tesseract
             GIT_REPOSITORY  "https://github.com/tesseract-ocr/tesseract.git"
@@ -105,9 +106,10 @@ FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
             UPDATE_COMMAND ""
             PATCH_COMMAND ""
             TEST_COMMAND ""
-            BUILD_COMMAND "${CMAKE_COMMAND}" --build . --target libtesseract
+            BUILD_COMMAND "${CMAKE_COMMAND}" --build . --target libtesseract --config Debug &&
+                          "${CMAKE_COMMAND}" --build . --target libtesseract --config Release
             INSTALL_COMMAND ""
-            BINARY_DIR "${Tesseract_Source}/bin"
+            BINARY_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tesseract"
             SOURCE_DIR "${Tesseract_Source}"
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX:PATH=${ROOT_DIR}/tesseract/install
@@ -116,18 +118,16 @@ FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
                 -DSTATIC=TRUE
         )
         
-        add_library(libtesseract SHARED IMPORTED)
+        ADD_LIBRARY(libtesseract SHARED IMPORTED)
         
         set_property(TARGET libtesseract APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
         set_target_properties(libtesseract PROPERTIES
-            IMPORTED_IMPLIB_DEBUG "${Tesseract_Source}/bin/Debug/tesseract400d.lib"
-            IMPORTED_LOCATION_DEBUG "${Tesseract_Source}/bin/bin/Debug/tesseract400d.dll"
+            IMPORTED_IMPLIB_DEBUG "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tesseract/Debug/tesseract400d.lib"
         )
         
         set_property(TARGET libtesseract APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
         set_target_properties(libtesseract PROPERTIES
-            IMPORTED_IMPLIB_RELEASE "${Tesseract_Source}/bin/Release/tesseract400.lib"
-            IMPORTED_LOCATION_RELEASE "${Tesseract_Source}/bin/bin/Release/tesseract400.dll"
+            IMPORTED_IMPLIB_RELEASE "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tesseract/Release/tesseract400.lib"
         )
         
         SET(EXTERNAL_PROJECTS ${EXTERNAL_PROJECTS};tesseract PARENT_SCOPE)
@@ -149,7 +149,53 @@ FUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
         SET(Tesseract_LIBS libtesseract PARENT_SCOPE)
         SET(Tesseract_INCLUDE_DIRS ${Tesseract_INCLUDE_DIRS} PARENT_SCOPE)
     ENDIF(NOT ${Tesseract_FOUND})
-
-
 ENDFUNCTION(ADD_DEPENDENCY_TO_TESSERACT)
+
+
+FUNCTION(ADD_DEPENDENCY_TO_GTEST)
+    SET(Googletest_Source ${CMAKE_SOURCE_DIR}/googletest)
+    FILE(MAKE_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/googletest)
+
+    
+    INCLUDE(ExternalProject)
+    ExternalProject_Add(googletest
+          GIT_REPOSITORY    https://github.com/google/googletest.git
+          GIT_TAG           master
+          UPDATE_COMMAND ""
+          PATCH_COMMAND ""
+          TEST_COMMAND ""
+          SOURCE_DIR        "${Googletest_Source}"
+          BINARY_DIR        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/googletest"
+          CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX:PATH=${Googletest_Source}/install
+            -Dgtest_force_shared_crt=TRUE
+    )
+    
+    ADD_LIBRARY(libgoogletest SHARED IMPORTED)
+        
+    set_property(TARGET libgoogletest APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
+    set_target_properties(libgoogletest PROPERTIES
+        IMPORTED_IMPLIB_DEBUG "${Googletest_Source}/install/lib/gtest.lib"
+    )
+    
+    set_property(TARGET libgoogletest APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+    set_target_properties(libgoogletest PROPERTIES
+        IMPORTED_IMPLIB_RELEASE "${Googletest_Source}/install/lib/gtest.lib"
+    )
+    
+    add_library(libgoogletest_main SHARED IMPORTED)
+        
+    set_property(TARGET libgoogletest_main APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
+    set_target_properties(libgoogletest_main PROPERTIES
+        IMPORTED_IMPLIB_DEBUG "${Googletest_Source}/install/lib/gtest_main.lib"
+    )
+    
+    set_property(TARGET libgoogletest_main APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+    set_target_properties(libgoogletest_main PROPERTIES
+        IMPORTED_IMPLIB_RELEASE "${Googletest_Source}/install/lib/gtest_main.lib"
+    )
+        
+	SET(GTest_LIBS libgoogletest libgoogletest_main PARENT_SCOPE)
+    SET(GTEST_INCLUDE_DIRS ${Googletest_Source}/install/include PARENT_SCOPE)
+ENDFUNCTION(ADD_DEPENDENCY_TO_GTEST)
 
