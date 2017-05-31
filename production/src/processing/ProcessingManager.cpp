@@ -47,7 +47,7 @@ cv::Mat ProcessingManager::loadImage(std::string imageName)
     {
         throw std::exception("Could not open or find the image");
     }
-
+    showImage(image);
     return image;
 }
 
@@ -99,15 +99,20 @@ int ProcessingManager::calculateHeight(cv::Mat image) const
     bht.doThreshold(image, image, BhThresholdMethod::SAUVOLA);
 
     std::vector<cv::Vec4i> lines;
-
     cv::HoughLinesP(image, lines, 1, CV_PI / 180, 50, image.size().width / 2, image.size().height * configuration.minRegionHeight);
-    
+
+    if (!lines.size())
+    {
+        return 0;
+    }
+
     std::vector<int> height;
     for (size_t i = 0; i < lines.size(); i++)
     {
         cv::Vec4i l = lines[i];
-        line(image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 255, 255), 3, CV_AA);
+        cv::line(image, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(255, 255, 255), 3, CV_AA);
     }
+
     cv::morphologyEx(image, image, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(static_cast<int>(image.size().width * 0.08), 7)));
     cv::threshold(image, image, 150, 255, CV_THRESH_BINARY);
 
@@ -127,6 +132,11 @@ int ProcessingManager::calculateHeight(cv::Mat image) const
         return rect.size.height > 3 && rect.size.height < 100;
     });
 
+    if (filteredRects.size() == 0)
+    {
+        return 0;
+    }
+
     std::nth_element(filteredRects.begin(), filteredRects.begin() + filteredRects.size() / 2, filteredRects.end(), [](cv::RotatedRect lhs, cv::RotatedRect rhs) {
         return lhs.size.height < rhs.size.height;
     });
@@ -143,7 +153,7 @@ std::vector<cv::Mat> ProcessingManager::findRegions(cv::Mat image) const
     std::for_each(regions.begin(), regions.end(), [&uniqueRegions, &image](cv::Rect rect) {
         uniqueRegions.insert(uniqueRegions.begin(), image.clone()(rect));
     });
-
+    showImage(uniqueRegions.at(1));
     return uniqueRegions;
 }
 
